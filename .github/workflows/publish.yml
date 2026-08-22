@@ -1,0 +1,30 @@
+name: Autonomous Daily Publisher
+
+on:
+  schedule:
+    - cron: '0 9 * * *' # Spustí se každý den přesně v 9:00 ráno UTC
+  workflow_dispatch: # Umožní vám spustit publikaci ručně jedním kliknutím
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Run Publisher Engine
+        run: |
+          python .github/scripts/publish.py
+
+      - name: Commit and Push changes
+        run: |
+          git config --global user.name "AI Automated Publisher"
+          git config --global user.email "ai-publisher@github.com"
+          git add .
+          git diff-index --quiet HEAD || git commit -m "Automated publishing of daily article"
+          git push
