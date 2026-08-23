@@ -33,13 +33,19 @@ body {
     align-items: center;
 }
 
-.nav-logo {
-    font-size: 1.8rem; 
-    font-weight: 700; 
-    color: #000000; 
-    text-decoration: none; 
-    letter-spacing: -1px;
+.nav-logo-link {
+    display: flex;
+    align-items: center;
+    height: 45px; /* Pevná ideální výška pro lištu */
+    text-decoration: none;
 }
+
+.brand-logo {
+    height: 100%;
+    width: auto;
+    object-fit: contain;
+}
+
 
 .nav-tagline {
     font-size: 0.65rem;

@@ -19,7 +19,7 @@ def main():
     next_draft = draft_files[0]
     filename = os.path.basename(next_draft)
     
-    # Krásná SEO adresa
+    # Čistá SEO url adresa
     seo_name = filename.lower().replace(".md", ".html")
     seo_name = re.sub(r'[^a-z0-9\-\.]', '', seo_name.replace(" ", "-"))
     
@@ -32,14 +32,14 @@ def main():
     with open(next_draft, "r", encoding="utf-8") as f:
         md_content = f.read()
         
-    # Stabilní tech/travel obrázky z Pexels otevřené sítě
-    image_url = "https://pexels.com" # notebook z pláže
+    # Výběr 100% stabilních obrázků (Pexels)
+    image_url = "https://pexels.com"
     if "vps" in seo_name or "server" in md_content.lower():
-        image_url = "https://pexels.com" # servery/tech
-    elif "psychologie" in seo_name:
-        image_url = "https://pexels.com" # soustředěný trading
+        image_url = "https://pexels.com"
+    elif "psychologie" in seo_name or "boti" in seo_name:
+        image_url = "https://pexels.com"
         
-    # Konverze markdownu
+    # Převod základního markdownu do HTML
     html_content = md_content
     html_content = re.sub(r'^# (.*)', r'<h1>\1</h1>', html_content, flags=re.M)
     html_content = re.sub(r'^## (.*)', r'<h2>\1</h2>', html_content, flags=re.M)
@@ -47,7 +47,6 @@ def main():
     html_content = re.sub(r'\*(.*?)\*', r'<em>\1</em>', html_content)
     html_content = re.sub(r'\[(.*?)\]\((.*?)\)', r'<a href="\2" target="_blank" class="affiliate-link">\1</a>', html_content)
 
-    # Čisté odstavce pro lepší čitelnost
     paragraphs = html_content.split('\n\n')
     formatted_paragraphs = []
     for p in paragraphs:
@@ -57,7 +56,7 @@ def main():
             formatted_paragraphs.append(p.strip())
     html_content = '\n'.join(formatted_paragraphs)
 
-    # Stránka článku s identickou horní lištou
+    # ŠABLONA DETAILU ČLÁNKU (Logo se volá z kořene přes ../logo.png)
     full_html = f"""<!DOCTYPE html>
 <html lang="cs">
 <head>
@@ -69,7 +68,9 @@ def main():
 <body>
     <nav class="navbar">
         <div class="nav-container">
-            <a href="../index.html" class="nav-logo">RoamGenius</a>
+            <a href="../index.html" class="nav-logo-link">
+                <img src="../logo.png" class="brand-logo" alt="RoamGenius">
+            </a>
             <span class="nav-tagline">HUB</span>
         </div>
     </nav>
@@ -83,7 +84,7 @@ def main():
         </article>
     </main>
     <footer>
-        <p>&copy; {datetime.now(timezone.utc).year} RoamGenius. Všechna práva vyhrazena.</p>
+        <p>&copy; {datetime.now(timezone.utc).year} RoamGenius. Všechna práva vyhrazená.</p>
     </footer>
 </body>
 </html>"""
@@ -92,7 +93,7 @@ def main():
         f.write(full_html)
         
     os.remove(next_draft)
-    print(f"Publikováno: {seo_name}")
+    print(f"Uspesne publikovano do posts: {seo_name}")
     
     generate_index_and_rss()
 
@@ -115,14 +116,12 @@ def generate_index_and_rss():
         with open(pf, "r", encoding="utf-8") as f:
             content = f.read()
             
-        # Vytáhnutí obrázku pro náhled v seznamu
         img_match = re.search(r'src="(.*?)"', content)
         thumb_url = img_match.group(1) if img_match else "https://pexels.com"
         
-        # Vytáhnutí čistého úryvku textu (perexu)
         clean_text = re.sub(r'<[^>]*>', '', content)
-        clean_text = clean_text.replace("RoamGenius", "").replace("HUB", "").strip()
-        perex = clean_text[:180].strip() + "..."
+        clean_text = clean_text.replace("RoamGenius", "").replace("HUB", "").replace("Home", "").strip()
+        perex = clean_text[:220].strip() + "..."
         
         posts_list_html += f"""
         <article class="post-card">
@@ -148,6 +147,7 @@ def generate_index_and_rss():
         </item>
         """
         
+    # ŠABLONA HLAVNÍ STRÁNKY (Logo se volá přímo přes logo.png)
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(f"""<!DOCTYPE html>
 <html lang="cs">
@@ -160,7 +160,9 @@ def generate_index_and_rss():
 <body>
     <nav class="navbar">
         <div class="nav-container">
-            <a href="index.html" class="nav-logo">RoamGenius</a>
+            <a href="index.html" class="nav-logo-link">
+                <img src="logo.png" class="brand-logo" alt="RoamGenius">
+            </a>
             <span class="nav-tagline">HUB</span>
         </div>
     </nav>
@@ -170,7 +172,7 @@ def generate_index_and_rss():
         </section>
     </main>
     <footer>
-        <p>&copy; {datetime.now(timezone.utc).year} RoamGenius. Všechna práva vyhrazena.</p>
+        <p>&copy; {datetime.now(timezone.utc).year} RoamGenius. Všechna práva vyhrazená.</p>
     </footer>
 </body>
 </html>""")
