@@ -4,7 +4,6 @@ import re
 from datetime import datetime, timezone
 
 def clean_all_html_tags(text):
-    """Kompletně vyčistí jakékoliv staré HTML tagy a zanechá pouze čistý text."""
     clean = re.compile('<.*?>')
     return re.sub(clean, '', text).strip()
 
@@ -24,7 +23,6 @@ def main():
     next_draft = draft_files[0]
     filename = os.path.basename(next_draft)
     
-    # Čistá SEO URL
     seo_name = filename.lower().replace(".md", ".html")
     seo_name = re.sub(r'[^a-z0-9\-\.]', '', seo_name.replace(" ", "-"))
     
@@ -37,14 +35,12 @@ def main():
     with open(next_draft, "r", encoding="utf-8") as f:
         raw_content = f.read()
         
-    # Výběr stabilních obrázků z volné sítě Pexels
     image_url = "https://pexels.com"
-    if "vps" in seo_name:
+    if "vps" in seo_name or "server" in raw_content.lower():
         image_url = "https://pexels.com"
-    elif "psychologie" in seo_name:
+    elif "psychologie" in seo_name or "boti" in raw_content.lower():
         image_url = "https://pexels.com"
 
-    # Zpracování textu řádek po řádku - ochrana proti zdvojeným tagům
     lines = raw_content.split('\n')
     body_html = ""
     
@@ -62,22 +58,25 @@ def main():
         else:
             body_html += f"<p>{cleaned_line}</p>\n"
 
-    # Šablona detailu článku (Upozornění: style.css i logo.png načítáme absolutně z kořene přes / )
+    # Relativní cesty k logu a stylům pro vnitřek složky /posts/
+    css_path = "../style.css"
+    logo_path = "../roamgenius-logo.jpg"
+    home_path = "../index.html"
+
     full_html = f"""<!DOCTYPE html>
 <html lang="cs">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RoamGenius Hub</title>
-    <link rel="stylesheet" href="/style.css">
+    <title>RoamGenius</title>
+    <link rel="stylesheet" href="{css_path}">
 </head>
 <body>
     <nav class="navbar">
         <div class="nav-container">
-            <a href="/index.html" class="nav-logo-link">
-                <img src="/logo.png" class="brand-logo" alt="RoamGenius">
+            <a href="{home_path}" class="nav-logo-link">
+                <img src="{logo_path}" class="brand-logo" alt="RoamGenius">
             </a>
-            <span class="nav-tagline">HUB</span>
         </div>
     </nav>
     <nav class="navbar-spacer"></nav>
@@ -118,16 +117,18 @@ def generate_index_and_rss():
         except:
             formatted_date = date_part
             
-        title_part = filename[11:-5].replace("-", " ").title()
-        
         with open(pf, "r", encoding="utf-8") as f:
             content = f.read()
             
-        # Bezpečné vytažení URL obrázku z vygenerovaného článku
+        title_match = re.search(r'<h1>(.*?)</h1>', content)
+        title_part = title_match.group(1).strip() if title_match else filename[11:-5].replace("-", " ").title()
+            
         img_match = re.search(r'src="(.*?)"', content)
         thumb_url = img_match.group(1) if img_match else "https://pexels.com"
         
-        # Precizní extrakce čistého textu pro perex (vynechá navigaci a bere jen text z odstavců <p>)
+        if thumb_url.startswith("../"):
+            thumb_url = thumb_url.replace("../", "")
+        
         p_matches = re.findall(r'<p>(.*?)</p>', content)
         clean_paragraphs = [clean_all_html_tags(p) for p in p_matches if "Všechna práva vyhrazená" not in p]
         
@@ -146,7 +147,7 @@ def generate_index_and_rss():
                 <span class="date">{formatted_date}</span>
                 <h2><a href="posts/{filename}">{title_part}</a></h2>
                 <p>{perex}</p>
-                <a href="posts/{filename}" class="read-more">Číst analýzu &rarr;</a>
+                <a href="posts/{filename}" class="read-more">Pokračovat ve čtení &rarr;</a>
             </div>
         </article>
         """
@@ -161,23 +162,25 @@ def generate_index_and_rss():
         </item>
         """
         
-    # Šablona hlavní stránky (index.html)
+    css_path_index = "style.css"
+    logo_path_index = "roamgenius-logo.jpg"
+    home_path_index = "index.html"
+
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(f"""<!DOCTYPE html>
 <html lang="cs">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RoamGenius Hub</title>
-    <link rel="stylesheet" href="/style.css">
+    <title>RoamGenius</title>
+    <link rel="stylesheet" href="{css_path_index}">
 </head>
 <body>
     <nav class="navbar">
         <div class="nav-container">
-            <a href="/index.html" class="nav-logo-link">
-                <img src="/logo.png" class="brand-logo" alt="RoamGenius">
+            <a href="{home_path_index}" class="nav-logo-link">
+                <img src="{logo_path_index}" class="brand-logo" alt="RoamGenius">
             </a>
-            <span class="nav-tagline">HUB</span>
         </div>
     </nav>
     <nav class="navbar-spacer"></nav>
@@ -193,7 +196,7 @@ def generate_index_and_rss():
 </html>""")
 
     with open("rss.xml", "w", encoding="utf-8") as f:
-        f.write(f"<?xml version='1.0' encoding='UTF-8' ?><rss version='2.0'><channel><title>RoamGenius Hub</title><link>https://roamgenius.com</link><description>Trading & Cestování</description>{rss_items}</channel></rss>")
+        f.write(f"<?xml version='1.0' encoding='UTF-8' ?><rss version='2.0'><channel><title>RoamGenius</title><link>https://roamgenius.com</link><description>Trading & Cestování</description>{rss_items}</channel></rss>")
 
 if __name__ == "__main__":
     main()
