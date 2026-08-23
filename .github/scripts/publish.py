@@ -3,13 +3,10 @@ import glob
 import re
 from datetime import datetime, timezone
 
-def clean_old_html(text):
-    """Funkce, která automaticky vyčistí staré HTML tagy, pokud v článku zůstaly."""
-    # Odstraní běžné formátovací tagy, aby se netloukly s novým formátem
-    text = re.sub(r'</?(p|h1|h2|h3|em|strong|br|div|span|article)>', '', text, flags=re.I)
-    # Vyčistí případné staré duplicitní odkazy, pokud tam zbyly
-    text = re.sub(r'<a[^>]*>(.*?)</a>', r'\1', text, flags=re.I)
-    return text.strip()
+def clean_all_html_tags(text):
+    """Kompletně vyčistí jakékoliv staré HTML tagy a zanechá pouze čistý text."""
+    clean = re.compile('<.*?>')
+    return re.sub(clean, '', text).strip()
 
 def main():
     drafts_dir = "drafts"
@@ -27,7 +24,7 @@ def main():
     next_draft = draft_files[0]
     filename = os.path.basename(next_draft)
     
-    # Čistá SEO url adresa
+    # Čistá SEO URL
     seo_name = filename.lower().replace(".md", ".html")
     seo_name = re.sub(r'[^a-z0-9\-\.]', '', seo_name.replace(" ", "-"))
     
@@ -40,62 +37,56 @@ def main():
     with open(next_draft, "r", encoding="utf-8") as f:
         raw_content = f.read()
         
-    # Automatické vyčištění textu před publikací
-    md_content = clean_old_html(raw_content)
-        
-    # Výběr 100% stabilních obrázků (Pexels)
+    # Výběr stabilních obrázků z volné sítě Pexels
     image_url = "https://pexels.com"
-    if "vps" in seo_name or "server" in md_content.lower():
+    if "vps" in seo_name:
         image_url = "https://pexels.com"
-    elif "psychologie" in seo_name or "boti" in seo_name:
+    elif "psychologie" in seo_name:
         image_url = "https://pexels.com"
-        
-    # Převod základního čistého textu/markdownu do HTML
-    html_content = md_content
-    html_content = re.sub(r'^# (.*)', r'<h1>\1</h1>', html_content, flags=re.M)
-    html_content = re.sub(r'^## (.*)', r'<h2>\1</h2>', html_content, flags=re.M)
-    html_content = re.sub(r'^### (.*)', r'<h3>\1</h3>', html_content, flags=re.M)
-    html_content = re.sub(r'\*(.*?)\*', r'<em>\1</em>', html_content)
-    html_content = re.sub(r'\[(.*?)\]\((.*?)\)', r'<a href="\2" target="_blank" class="affiliate-link">\1</a>', html_content)
 
-    # Správné rozdělení na čisté odstavce
-    paragraphs = html_content.split('\n\n')
-    formatted_paragraphs = []
-    for p in paragraphs:
-        if not p.strip().startswith('<h') and p.strip():
-            # Pokud řádek náhodou začíná odrážkou, nebalíme ho do <p>
-            if p.strip().startswith('* ') or p.strip().startswith('- '):
-                formatted_paragraphs.append(p.strip())
-            else:
-                formatted_paragraphs.append(f"<p>{p.strip()}</p>")
+    # Zpracování textu řádek po řádku - ochrana proti zdvojeným tagům
+    lines = raw_content.split('\n')
+    body_html = ""
+    
+    for line in lines:
+        cleaned_line = clean_all_html_tags(line)
+        if not cleaned_line:
+            continue
+            
+        if line.strip().startswith('# '):
+            body_html += f"<h1>{cleaned_line}</h1>\n"
+        elif line.strip().startswith('## '):
+            body_html += f"<h2>{cleaned_line}</h2>\n"
+        elif line.strip().startswith('### '):
+            body_html += f"<h3>{cleaned_line}</h3>\n"
         else:
-            formatted_paragraphs.append(p.strip())
-    html_content = '\n'.join(formatted_paragraphs)
+            body_html += f"<p>{cleaned_line}</p>\n"
 
-    # ŠABLONA DETAILU ČLÁNKU
+    # Šablona detailu článku (Upozornění: style.css i logo.png načítáme absolutně z kořene přes / )
     full_html = f"""<!DOCTYPE html>
 <html lang="cs">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RoamGenius Hub</title>
-    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="/style.css">
 </head>
 <body>
     <nav class="navbar">
         <div class="nav-container">
-            <a href="../index.html" class="nav-logo-link">
-                <img src="../logo.png" class="brand-logo" alt="RoamGenius">
+            <a href="/index.html" class="nav-logo-link">
+                <img src="/logo.png" class="brand-logo" alt="RoamGenius">
             </a>
             <span class="nav-tagline">HUB</span>
         </div>
     </nav>
+    <nav class="navbar-spacer"></nav>
     <main class="container">
         <article class="single-post">
             <div class="post-meta">{datetime.now(timezone.utc).strftime("%d. %m. %Y")}</div>
-            <img src="{image_url}" class="featured-image" alt="Featured Image">
+            <img src="{image_url}" class="featured-image" alt="Article Image">
             <div class="article-body">
-                {html_content}
+                {body_html}
             </div>
         </article>
     </main>
@@ -109,7 +100,7 @@ def main():
         f.write(full_html)
         
     os.remove(next_draft)
-    print(f"Uspesne publikovano do posts: {seo_name}")
+    print(f"Uspesne publikovano: {seo_name}")
     
     generate_index_and_rss()
 
@@ -132,13 +123,19 @@ def generate_index_and_rss():
         with open(pf, "r", encoding="utf-8") as f:
             content = f.read()
             
+        # Bezpečné vytažení URL obrázku z vygenerovaného článku
         img_match = re.search(r'src="(.*?)"', content)
         thumb_url = img_match.group(1) if img_match else "https://pexels.com"
         
-        # Generování čistého úryvku bez tagů
-        clean_text = re.sub(r'<[^>]*>', '', content)
-        clean_text = clean_text.replace("RoamGenius", "").replace("HUB", "").replace("Home", "").strip()
-        perex = clean_text[:220].strip() + "..."
+        # Precizní extrakce čistého textu pro perex (vynechá navigaci a bere jen text z odstavců <p>)
+        p_matches = re.findall(r'<p>(.*?)</p>', content)
+        clean_paragraphs = [clean_all_html_tags(p) for p in p_matches if "Všechna práva vyhrazená" not in p]
+        
+        perex = ""
+        if clean_paragraphs:
+            perex = " ".join(clean_paragraphs)[:200].strip() + "..."
+        else:
+            perex = "Klikněte pro otevření kompletní hloubkové analýzy..."
         
         posts_list_html += f"""
         <article class="post-card">
@@ -164,7 +161,7 @@ def generate_index_and_rss():
         </item>
         """
         
-    # ŠABLONA HLAVNÍ STRÁNKY
+    # Šablona hlavní stránky (index.html)
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(f"""<!DOCTYPE html>
 <html lang="cs">
@@ -172,24 +169,25 @@ def generate_index_and_rss():
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RoamGenius Hub</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/style.css">
 </head>
 <body>
     <nav class="navbar">
         <div class="nav-container">
-            <a href="index.html" class="nav-logo-link">
-                <img src="logo.png" class="brand-logo" alt="RoamGenius">
+            <a href="/index.html" class="nav-logo-link">
+                <img src="/logo.png" class="brand-logo" alt="RoamGenius">
             </a>
             <span class="nav-tagline">HUB</span>
         </div>
     </nav>
+    <nav class="navbar-spacer"></nav>
     <main class="container">
         <section class="posts-list">
             {posts_list_html}
         </section>
     </main>
     <footer>
-        <p>&copy; {datetime.now(timezone.utc).year} RoamGenius. Všechna práva vyhrazená.</p>
+        <p>&copy; {datetime.now().year} RoamGenius. Všechna práva vyhrazená.</p>
     </footer>
 </body>
 </html>""")
