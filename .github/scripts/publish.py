@@ -3,6 +3,14 @@ import glob
 import re
 from datetime import datetime, timezone
 
+def clean_old_html(text):
+    """Funkce, která automaticky vyčistí staré HTML tagy, pokud v článku zůstaly."""
+    # Odstraní běžné formátovací tagy, aby se netloukly s novým formátem
+    text = re.sub(r'</?(p|h1|h2|h3|em|strong|br|div|span|article)>', '', text, flags=re.I)
+    # Vyčistí případné staré duplicitní odkazy, pokud tam zbyly
+    text = re.sub(r'<a[^>]*>(.*?)</a>', r'\1', text, flags=re.I)
+    return text.strip()
+
 def main():
     drafts_dir = "drafts"
     posts_dir = "posts"
@@ -30,7 +38,10 @@ def main():
     target_path = os.path.join(posts_dir, seo_name)
     
     with open(next_draft, "r", encoding="utf-8") as f:
-        md_content = f.read()
+        raw_content = f.read()
+        
+    # Automatické vyčištění textu před publikací
+    md_content = clean_old_html(raw_content)
         
     # Výběr 100% stabilních obrázků (Pexels)
     image_url = "https://pexels.com"
@@ -39,7 +50,7 @@ def main():
     elif "psychologie" in seo_name or "boti" in seo_name:
         image_url = "https://pexels.com"
         
-    # Převod základního markdownu do HTML
+    # Převod základního čistého textu/markdownu do HTML
     html_content = md_content
     html_content = re.sub(r'^# (.*)', r'<h1>\1</h1>', html_content, flags=re.M)
     html_content = re.sub(r'^## (.*)', r'<h2>\1</h2>', html_content, flags=re.M)
@@ -47,16 +58,21 @@ def main():
     html_content = re.sub(r'\*(.*?)\*', r'<em>\1</em>', html_content)
     html_content = re.sub(r'\[(.*?)\]\((.*?)\)', r'<a href="\2" target="_blank" class="affiliate-link">\1</a>', html_content)
 
+    # Správné rozdělení na čisté odstavce
     paragraphs = html_content.split('\n\n')
     formatted_paragraphs = []
     for p in paragraphs:
         if not p.strip().startswith('<h') and p.strip():
-            formatted_paragraphs.append(f"<p>{p.strip()}</p>")
+            # Pokud řádek náhodou začíná odrážkou, nebalíme ho do <p>
+            if p.strip().startswith('* ') or p.strip().startswith('- '):
+                formatted_paragraphs.append(p.strip())
+            else:
+                formatted_paragraphs.append(f"<p>{p.strip()}</p>")
         else:
             formatted_paragraphs.append(p.strip())
     html_content = '\n'.join(formatted_paragraphs)
 
-    # ŠABLONA DETAILU ČLÁNKU (Logo se volá z kořene přes ../logo.png)
+    # ŠABLONA DETAILU ČLÁNKU
     full_html = f"""<!DOCTYPE html>
 <html lang="cs">
 <head>
@@ -119,6 +135,7 @@ def generate_index_and_rss():
         img_match = re.search(r'src="(.*?)"', content)
         thumb_url = img_match.group(1) if img_match else "https://pexels.com"
         
+        # Generování čistého úryvku bez tagů
         clean_text = re.sub(r'<[^>]*>', '', content)
         clean_text = clean_text.replace("RoamGenius", "").replace("HUB", "").replace("Home", "").strip()
         perex = clean_text[:220].strip() + "..."
@@ -147,7 +164,7 @@ def generate_index_and_rss():
         </item>
         """
         
-    # ŠABLONA HLAVNÍ STRÁNKY (Logo se volá přímo přes logo.png)
+    # ŠABLONA HLAVNÍ STRÁNKY
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(f"""<!DOCTYPE html>
 <html lang="cs">
